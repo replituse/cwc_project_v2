@@ -33,6 +33,11 @@ import { parseInpFile } from '@/lib/inp-parser';
 import { saveAs } from 'file-saver';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest } from '@/lib/queryClient';
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/components/ui/resizable";
 
 const nodeTypes = {
   reservoir: ReservoirNode,
@@ -216,7 +221,8 @@ function DesignerInner() {
       generateInpFile(nodes, edges);
       
       // Generate system diagram as well
-      const diagramBlob = generateSystemDiagram(nodes, edges);
+      const diagramHtml = generateSystemDiagram(nodes, edges);
+      const diagramBlob = new Blob([diagramHtml], { type: 'text/html' });
       saveAs(diagramBlob, `system_diagram_${Date.now()}.html`);
       
       toast({ title: "Files Generated", description: "WHAMO input file and System Diagram downloaded successfully." });
@@ -224,6 +230,16 @@ function DesignerInner() {
       toast({ variant: "destructive", title: "Generation Failed", description: "Could not generate files. Check connections." });
     }
   };
+
+  const [showDiagram, setShowDiagram] = useState(false);
+  const [diagramSvg, setDiagramSvg] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (showDiagram) {
+      const svg = generateSystemDiagram(nodes, edges);
+      setDiagramSvg(svg);
+    }
+  }, [nodes, edges, showDiagram]);
 
   return (
     <div className="flex flex-col h-screen w-full overflow-hidden bg-background text-foreground">
@@ -244,51 +260,99 @@ function DesignerInner() {
       />
 
       {/* Main Content Area */}
-      <div className="flex-1 flex overflow-hidden relative">
-        {/* Canvas Area */}
-        <div className="flex-1 relative h-full bg-slate-50 transition-all duration-300">
-          <ReactFlow
-            nodes={nodes as any}
-            edges={edges as any}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            onConnect={onConnect}
-            nodeTypes={nodeTypes}
-            edgeTypes={edgeTypes}
-            onNodeClick={onNodeClick}
-            onEdgeClick={onEdgeClick}
-            onSelectionChange={onSelectionChange as any}
-            fitView
-            className="bg-slate-50"
-            proOptions={{ hideAttribution: true }}
-            nodesDraggable={!isLocked}
-            nodesConnectable={!isLocked}
-            elementsSelectable={true}
-          >
-            <Background color="#94a3b8" gap={20} size={1} />
-            <Controls className="!bg-white !shadow-xl !border-border">
-            </Controls>
-          </ReactFlow>
-          
-          {isLocked && (
-            <div className="absolute top-4 right-4 bg-orange-100 text-orange-800 px-3 py-1 rounded-md text-sm font-medium border border-orange-200 shadow-sm z-50 flex items-center gap-2">
-              <span className="w-2 h-2 bg-orange-500 rounded-full animate-pulse" />
-              Network Locked
-            </div>
-          )}
-        </div>
+      <div className="flex-1 overflow-hidden relative">
+        <ResizablePanelGroup direction="vertical">
+          <ResizablePanel defaultSize={75} minSize={30}>
+            <div className="flex h-full w-full overflow-hidden relative">
+              {/* Canvas Area */}
+              <div className="flex-1 relative h-full bg-slate-50 transition-all duration-300">
+                <ReactFlow
+                  nodes={nodes as any}
+                  edges={edges as any}
+                  onNodesChange={onNodesChange}
+                  onEdgesChange={onEdgesChange}
+                  onConnect={onConnect}
+                  nodeTypes={nodeTypes}
+                  edgeTypes={edgeTypes}
+                  onNodeClick={onNodeClick}
+                  onEdgeClick={onEdgeClick}
+                  onSelectionChange={onSelectionChange as any}
+                  fitView
+                  className="bg-slate-50"
+                  proOptions={{ hideAttribution: true }}
+                  nodesDraggable={!isLocked}
+                  nodesConnectable={!isLocked}
+                  elementsSelectable={true}
+                >
+                  <Background color="#94a3b8" gap={20} size={1} />
+                  <Controls className="!bg-white !shadow-xl !border-border">
+                  </Controls>
+                </ReactFlow>
+                
+                {isLocked && (
+                  <div className="absolute top-4 right-4 bg-orange-100 text-orange-800 px-3 py-1 rounded-md text-sm font-medium border border-orange-200 shadow-sm z-50 flex items-center gap-2">
+                    <span className="w-2 h-2 bg-orange-500 rounded-full animate-pulse" />
+                    Network Locked
+                  </div>
+                )}
 
-        {/* Properties Panel (Sidebar) */}
-        <div 
-          className={cn(
-            "h-full border-l border-border bg-card shadow-2xl z-20 flex flex-col transition-all duration-300 ease-in-out overflow-hidden",
-            selectedElementId ? "w-[350px] opacity-100 visible" : "w-0 opacity-0 invisible"
+                <div className="absolute bottom-4 right-4 z-50 flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="bg-white shadow-md"
+                    onClick={() => {
+                      const svg = generateSystemDiagram(nodes, edges);
+                      setDiagramSvg(svg);
+                      setShowDiagram(true);
+                    }}
+                    data-testid="button-show-diagram"
+                  >
+                    Console Diagram
+                  </Button>
+                </div>
+              </div>
+
+              {/* Properties Panel (Sidebar) */}
+              <div 
+                className={cn(
+                  "h-full border-l border-border bg-card shadow-2xl z-20 flex flex-col transition-all duration-300 ease-in-out overflow-hidden",
+                  selectedElementId ? "w-[350px] opacity-100 visible" : "w-0 opacity-0 invisible"
+                )}
+              >
+                <div className="w-[350px] h-full">
+                  {selectedElementId && <PropertiesPanel />}
+                </div>
+              </div>
+            </div>
+          </ResizablePanel>
+          
+          {showDiagram && (
+            <>
+              <ResizableHandle withHandle />
+              <ResizablePanel defaultSize={25} minSize={10}>
+                <div className="h-full w-full bg-card border-t border-border overflow-auto p-4 flex flex-col">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">System Diagram Console</h3>
+                    <div className="flex gap-2">
+                      <Button variant="ghost" size="sm" onClick={() => {
+                        if (diagramSvg) {
+                          const diagramBlob = new Blob([diagramSvg], { type: 'text/html' });
+                          saveAs(diagramBlob, `system_diagram_${Date.now()}.html`);
+                        }
+                      }}>Export HTML</Button>
+                      <Button variant="ghost" size="sm" onClick={() => setShowDiagram(false)}>Close</Button>
+                    </div>
+                  </div>
+                  <div 
+                    className="flex-1 bg-white rounded-md border border-border flex items-center justify-center overflow-auto min-h-[200px]"
+                    dangerouslySetInnerHTML={{ __html: diagramSvg || '' }}
+                  />
+                </div>
+              </ResizablePanel>
+            </>
           )}
-        >
-          <div className="w-[350px] h-full">
-            {selectedElementId && <PropertiesPanel />}
-          </div>
-        </div>
+        </ResizablePanelGroup>
       </div>
     </div>
   );
