@@ -379,9 +379,37 @@ export function Header({ onExport, onSave, onLoad, onShowDiagram }: HeaderProps)
             size="sm" 
             onClick={onExport}
             className="h-9 px-6 rounded-full bg-[#1a73e8] hover:bg-[#1557b0] text-white font-medium shadow-sm transition-all"
+            data-testid="button-generate-inp"
           >
             <Download className="w-4 h-4 mr-2" />
             Generate .INP
+          </Button>
+          
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={async () => {
+              try {
+                const response = await fetch("/api/run-whamo", { method: "POST" });
+                if (!response.ok) {
+                  const errorText = await response.text();
+                  throw new Error(errorText || "WHAMO simulation failed.");
+                }
+                const blob = await response.blob();
+                const link = document.createElement("a");
+                link.href = URL.createObjectURL(blob);
+                link.download = "network.out";
+                link.click();
+              } catch (error: any) {
+                console.error("WHAMO Error:", error);
+                alert(error.message);
+              }
+            }}
+            className="h-9 px-6 rounded-full border-[#1a73e8] text-[#1a73e8] hover:bg-[#1a73e8]/10 font-medium shadow-sm transition-all"
+            data-testid="button-generate-out"
+          >
+            <Download className="w-4 h-4 mr-2" />
+            Generate .OUT
           </Button>
         </div>
       </div>
