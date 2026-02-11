@@ -311,12 +311,17 @@ export function Toolbar({ onExport, onSave, onLoad }: { onExport: () => void, on
             <TooltipContent>Save Project State</TooltipContent>
           </Tooltip>
 
-          <Button onClick={onExport} className="ml-2 shadow-lg shadow-primary/20">
+          <Button onClick={onExport} className="ml-2 shadow-lg shadow-primary/20" data-testid="button-generate-inp">
             <Download className="w-4 h-4 mr-2" />
             Generate .INP
           </Button>
 
-          <Button onClick={handleRunWhamo} variant="outline" className="ml-2 border-primary text-primary hover:bg-primary/10">
+          <Button 
+            onClick={handleRunWhamo} 
+            variant="outline" 
+            className="ml-2 border-primary text-primary hover:bg-primary/10"
+            data-testid="button-generate-out"
+          >
             <Download className="w-4 h-4 mr-2" />
             Generate .OUT
           </Button>
