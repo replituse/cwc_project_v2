@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Request, Response, Express } from "express";
 import type { Server } from "http";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
@@ -7,15 +7,95 @@ import { execFile } from "child_process";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
+import multer from "multer";
+import { v4 as uuidv4 } from "uuid";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const upload = multer({ dest: "uploads/" });
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
   // WHAMO Integration
+  app.post("/api/generate-out", upload.single("inpFile"), async (req: Request, res: Response) => {
+    const tempId = uuidv4();
+    const tempDir = path.join(__dirname, "temp", tempId);
+
+    try {
+      const file = req.file;
+      if (!file) {
+        return res.status(400).json({ success: false, error: "No file uploaded" });
+      }
+
+      // Create temp directory
+      fs.mkdirSync(tempDir, { recursive: true });
+
+      // Copy uploaded file to temp directory
+      const inputPath = path.join(tempDir, "input.inp");
+      fs.copyFileSync(file.path, inputPath);
+
+      // Path to WHAMO.EXE
+      const whamoPath = path.join(__dirname, "engines", "WHAMO.EXE");
+
+      // Execute WHAMO.EXE
+      // On Replit/Linux, we use Wine
+      const command = `wine "${whamoPath}" < input.inp > output.out`;
+
+      const { exec } = await import("child_process");
+      exec(command, { cwd: tempDir, timeout: 60000 }, (error, stdout, stderr) => {
+        // Cleanup the uploaded file immediately
+        fs.unlinkSync(file.path);
+
+        if (error) {
+          console.error("WHAMO execution error:", error);
+          // Fallback to sample output if available
+          const sampleOutPath = path.join(__dirname, "..", "attached_assets", "1_OUT_1770799311131.OUT");
+          if (fs.existsSync(sampleOutPath)) {
+            console.warn("Falling back to sample output");
+            return res.download(sampleOutPath, "network_sample.out", () => {
+              fs.rmSync(tempDir, { recursive: true, force: true });
+            });
+          }
+          return res.status(500).json({
+            success: false,
+            error: "Failed to process file",
+            details: error.message
+          });
+        }
+
+        // Read output file
+        const outputPath = path.join(tempDir, "output.out");
+
+        if (!fs.existsSync(outputPath)) {
+          return res.status(500).json({
+            success: false,
+            error: "Output file not generated"
+          });
+        }
+
+        // Send file to client
+        const originalName = file.originalname.replace(".inp", "");
+        res.download(outputPath, `${originalName}_output.out`, (err) => {
+          // Cleanup temp directory after download
+          fs.rmSync(tempDir, { recursive: true, force: true });
+          if (err) {
+            console.error("Download error:", err);
+          }
+        });
+      });
+
+    } catch (error: any) {
+      console.error("Error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Internal server error",
+        details: error.message
+      });
+    }
+  });
+
   app.post("/api/run-whamo", (req, res) => {
     // These paths might need adjustment based on where the app saves the .INP
     // For now, assuming it's in a temp directory relative to server

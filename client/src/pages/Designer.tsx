@@ -287,6 +287,83 @@ function DesignerInner() {
     }
   };
 
+  const [isGeneratingOut, setIsGeneratingOut] = useState(false);
+
+  const handleGenerateOut = async () => {
+    // Create file input element
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = '.inp';
+    
+    // Handle file selection
+    fileInput.onchange = async (e: any) => {
+      const file = e.target.files[0];
+      
+      if (!file) return;
+      
+      // Validate file extension
+      if (!file.name.endsWith('.inp')) {
+        toast({
+          variant: "destructive",
+          title: "Invalid file",
+          description: "Please select a valid .inp file"
+        });
+        return;
+      }
+      
+      // Show loading state
+      setIsGeneratingOut(true);
+      
+      try {
+        // Create form data
+        const formData = new FormData();
+        formData.append('inpFile', file);
+        
+        // Call API
+        const response = await fetch('/api/generate-out', {
+          method: 'POST',
+          body: formData
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to generate OUT file');
+        }
+        
+        // Get the blob
+        const blob = await response.blob();
+        
+        // Trigger download
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = file.name.replace('.inp', '_output.out');
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        
+        // Show success message
+        toast({
+          title: "Success",
+          description: "OUT file generated successfully!"
+        });
+        
+      } catch (error: any) {
+        console.error('Error:', error);
+        toast({
+          variant: "destructive",
+          title: "Generation Failed",
+          description: error.message || "Failed to generate OUT file. Please try again."
+        });
+      } finally {
+        setIsGeneratingOut(false);
+      }
+    };
+    
+    // Trigger file picker
+    fileInput.click();
+  };
+
   return (
     <div className="flex flex-col h-screen w-full overflow-hidden bg-background text-foreground">
       {/* Hidden File Input */}
@@ -301,6 +378,8 @@ function DesignerInner() {
       {/* Top Bar (Header) */}
       <Header 
         onExport={handleGenerateInp} 
+        onGenerateOut={handleGenerateOut}
+        isGeneratingOut={isGeneratingOut}
         onSave={handleSave} 
         onLoad={handleLoadClick} 
         onShowDiagram={() => {
