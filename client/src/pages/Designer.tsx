@@ -430,7 +430,7 @@ function DesignerInner() {
                             <Button size="icon" variant="secondary" className="w-8 h-8 rounded-full shadow-md" onClick={() => zoomOut()}>-</Button>
                             <Button size="icon" variant="secondary" className="w-8 h-8 rounded-full shadow-md" onClick={() => resetTransform()}>R</Button>
                           </div>
-                          <TransformComponent wrapperClassName="!w-full !h-full bg-white rounded-lg shadow-inner border" contentClassName="!w-full !h-full">
+                          <TransformComponent wrapperClass="!w-full !h-full bg-white rounded-lg shadow-inner border" contentClass="!w-full !h-full">
                             <div 
                               className="w-full h-full flex items-center justify-center p-8 cursor-grab active:cursor-grabbing"
                               id="system-diagram-container"
